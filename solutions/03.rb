@@ -36,7 +36,7 @@ class Promotion
       count > @threshold ? (count - @threshold) * price * @percent : 0
     end
 
-    def ordinal(number) #TODO: case
+    def ordinal(number) #REVIEW can this be rewritten with case
       result = number.to_s
       if (number >= 10 and number <= 19) then result+="th"
       elsif (number%10 == 1) then result += "st"
@@ -278,6 +278,7 @@ LINES
     end
 
     def to_invoice
+      '' if count == 0 
       result = "| %-42s%4d | %8.2f |\n" % [@item.name, count,@item.price(count)]
       if @item.discount(count).nonzero?
         array = [@item.promotion.description, -@item.discount(count)]
