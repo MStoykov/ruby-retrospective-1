@@ -35,15 +35,15 @@ class Promotion
       count > @threshold ? (count - @threshold) * price * @percent/100 : 0
     end
 
-    def ordinal(number) #REVIEW can this be rewritten with case
+    def ordinal(number)
       result = number.to_s
-      if (number >= 10 and number <= 19) then result+="th"
-      elsif (number%10 == 1) then result += "st"
-      elsif (number%10 == 2) then result += "nd"
-      elsif (number%10 == 3) then result += "rd"
-      else result += "th"
+      case result[-1].to_i
+      when 10..19 then result << "th"
+      when 1      then result << "st"
+      when 2      then result << "nd"
+      when 3      then result << "rd"
+      else             result << "th"
       end
-      result
     end
   end
 
