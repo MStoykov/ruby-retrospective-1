@@ -15,7 +15,7 @@ class Collection
     @collection.select { |song| filter.call song }
   end
 
-private 
+  private 
   def field_filter(field, value)
     ->(song) { song.send(field) == value } 
   end
