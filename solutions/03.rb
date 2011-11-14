@@ -3,7 +3,7 @@ require 'bigdecimal/util'
 
 class Promotion
   def self.get_promotion(description)
-    return NilPromotion.new if description == nil
+    return NilPromotion.new if description.nil?
     send description.first[0], description.first[1]
   end
 
@@ -13,13 +13,12 @@ class Promotion
   end
 
   def self.threshold(value)
-    percent = value.first[1]/'100'.to_d
-    threshold = value.first[0]
+    percent, threshold = value.first[1].to_s.to_d, value.first[0]
     return Threshold.new percent, threshold
   end
 
   def self.package(value)
-    package, percent = value.first[0], value.first[1]/'100'.to_d
+    package, percent = value.first[0], value.first[1].to_s.to_d
     return Package.new package, percent
   end
 
@@ -29,18 +28,18 @@ class Promotion
     end
 
     def description
-      "(#{(@percent*100).to_i}% off of every after the #{ordinal @threshold})"
+      "(%d%% off of every after the %s)" % [@percent, ordinal(@threshold)]
     end
 
     def apply(count, price)
-      count > @threshold ? (count - @threshold) * price * @percent : 0
+      count > @threshold ? (count - @threshold) * price * @percent/100 : 0
     end
 
     def ordinal(number) #REVIEW can this be rewritten with case
       result = number.to_s
       if (number >= 10 and number <= 19) then result+="th"
       elsif (number%10 == 1) then result += "st"
-        elsif (number%10 == 2) then result += "nd"
+      elsif (number%10 == 2) then result += "nd"
       elsif (number%10 == 3) then result += "rd"
       else result += "th"
       end
@@ -54,13 +53,13 @@ class Promotion
     end
 
     def description
-      "(get %2d%% off for every %d)" % [(@percent*100).to_i, @package]
+      "(get %2d%% off for every %d)" % [@percent, @package]
     end
 
     def apply(count, price)
       if count >= @package
         on_promo = count - count % @package
-        (price * on_promo * @percent)
+        price * on_promo * @percent / 100
       else
         0
       end
@@ -116,7 +115,7 @@ class Product
   end
 
   def eql?(other)
-    name == other.name if other != nil
+    name == other.name unless other.nil?
   end
 
   alias :== :eql?
@@ -188,7 +187,7 @@ class Inventory
 
   def get_item(name)
     temp = @items[name]
-    raise "No Item" if temp == nil
+    raise "No Item" if temp.nil?
     temp
   end
 
@@ -217,7 +216,7 @@ class Cart
   end
 
   def get_item(name)
-    if @items[name] == nil
+    if @items[name].nil?
       @items[name] = CartItem.new @get_item.call(name)
     end
     @items[name]
@@ -257,7 +256,7 @@ LINES
   end
 
   def coupon_invoice(sum)
-    return "" if @coupon == nil
+    return "" if @coupon.nil?
     info = [@coupon.info, @coupon.apply(sum)]
     "| %-46s | %8.2f |\n" % info
   end
@@ -278,7 +277,7 @@ LINES
     end
 
     def to_invoice
-      '' if count == 0 
+      '' if count.zero? 
       result = "| %-42s%4d | %8.2f |\n" % [@item.name, count,@item.price(count)]
       if @item.discount(count).nonzero?
         array = [@item.promotion.description, -@item.discount(count)]
