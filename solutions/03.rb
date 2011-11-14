@@ -91,11 +91,11 @@ class Promotion
 end
 
 class Product
-  attr_reader :name, :price, :promotion
+  attr_reader :name, :promotion
 
   def initialize(name, price, promotion = nil)
     raise "too long" if name.length > 40
-    raise "too low" if not ('999.99'.to_d >= price and price>= '0.01'.to_d)
+    raise "too low" unless '999.99'.to_d >= price and price>= '0.01'.to_d
     #TODO constants
     @name, @price = name, price
     @promotion = Promotion.get_promotion promotion
