@@ -1,13 +1,13 @@
-class Array 
+class Array
   def index_by
     result = {}
-    each { |n| result[yield n] = n } 
-    result 
+    each { |n| result[yield n] = n }
+    result
   end
 
   def to_hash
     result = {}
-    each { |n| result[n[0]] = n[1] } 
+    each { |n| result[n[0]] = n[1] }
     result 
   end
 

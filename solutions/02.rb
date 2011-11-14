@@ -25,11 +25,11 @@ private
   end
 
   def tag_filter(tag)
-    tag, exclude = tag.chop, true if tag.end_with? '!' 
-    ->(song) { song.tags.include?(tag) ^ exclude } 
+    tag, exclude = tag.chop, true if tag.end_with? '!'
+    ->(song) { song.tags.include?(tag) ^ exclude }
   end
 
-  def parse_array(line)
+  def parse_line(line)
     args = line.split(".")
     result = args[0..1].map(&:strip)
     result[2..3] = args[2].split(',').map(&:strip)

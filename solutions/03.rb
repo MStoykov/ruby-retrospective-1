@@ -7,7 +7,7 @@ class Promotion
     send description.first[0], description.first[1]
   end
 
-private 
+  private 
   def self.get_one_free value
     GetOneFree.new value
   end
@@ -36,7 +36,7 @@ private
       count > @threshold ? (count - @threshold) * price * @percent : 0
     end
 
-    def ordinal number
+    def ordinal number #TODO: case
       result = number.to_s
       if (number >= 10 and number <= 19) then result+="th"
       elsif (number%10 == 1) then result += "st"
@@ -108,7 +108,7 @@ class Product
   end
 
   def discount count
-    promotion.apply(count, @price) 
+    promotion.apply(count, @price)
   end
 
   def price count
@@ -116,7 +116,7 @@ class Product
   end
 
   def eql? (other)
-    name == other.name if other != nil 
+    name == other.name if other != nil
   end
 
   alias :== :eql?
@@ -183,12 +183,12 @@ class Inventory
   end
 
   def new_cart
-    Cart.new method(:get_item), method(:get_coupon) 
+    Cart.new method(:get_item), method(:get_coupon)
   end
 
   def get_item name
     temp = @items[name]
-    raise "No Item" if temp == nil 
+    raise "No Item" if temp == nil
     temp
   end
 
