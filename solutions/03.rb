@@ -2,55 +2,91 @@ require 'bigdecimal'
 require 'bigdecimal/util'
 
 class Promotion
-  attr_reader :description
-
-  def initialize key, value
-    send key, value
-  end
-
-  def apply count,price
-    @lambda.call count, price
+  def self.get_promotion description
+    return NilPromotion.new if description == nil
+    send description.first[0], description.first[1]
   end
 
 private 
-  def get_one_free value
-    @description = "(buy #{value-1}, get 1 free)"
-    @lambda = ->(count, price) { return count/value * price }
+  def self.get_one_free value
+    GetOneFree.new value
   end
 
-  def threshold value
+  def self.threshold value
     percent = value.first[1]/'100'.to_d
     threshold = value.first[0]
-    @description = "(#{value.first[1]}% off of every after the #{ordinal threshold})"
-    @lambda = ->(count, price) do
-      return count > threshold ? (count - threshold) * price * percent : 0
+    return Threshold.new percent, threshold
+  end
+
+  def self.package value
+    package, percent = value.first[0], value.first[1]/'100'.to_d
+    return Package.new package, percent
+  end
+
+  class Threshold 
+    def initialize percent, threshold
+      @percent, @threshold = percent, threshold
+    end
+
+    def description
+      "(#{(@percent*100).to_i}% off of every after the #{ordinal @threshold})"
+    end
+
+    def apply count, price
+      count > @threshold ? (count - @threshold) * price * @percent : 0
+    end
+
+    def ordinal number
+      result = number.to_s
+      if (number >= 10 and number <= 19) then result+="th"
+      elsif (number%10 == 1) then result += "st"
+        elsif (number%10 == 2) then result += "nd"
+      elsif (number%10 == 3) then result += "rd"
+      else result += "th"
+      end
+      result
     end
   end
 
-  def package value
-    package = value.first[0]
-    percent = value.first[1]/'100'.to_d
-    @description = "(get #{value.first[1]}% off for every #{value.first[0]})"
-    @lambda = ->(count, price) do
-      if count >= package then
-        on_promo = count - count%package
-        return (price * on_promo * percent)
+  class Package
+    def initialize package, percent
+      @percent, @package = percent, package
+    end
+
+    def description
+      "(get %2d%% off for every %d)" % [(@percent*100).to_i, @package]
+    end
+
+    def apply count, price
+      if count >= @package
+        on_promo = count - count % @package
+        (price * on_promo * @percent)
       else
         0
       end
     end
   end
-  
-  def ordinal number
-    result = number.to_s
-    if (number >= 10 and number <= 19) 
-      result+="th"
-    elsif (number%10 == 1) then result += "st"
-    elsif (number%10 == 2) then result += "nd"
-    elsif (number%10 == 3) then result += "rd"
-    else result += "th"
+
+  class GetOneFree
+    def initialize count
+      @count = count #TODO change name
     end
-    result
+    def apply count, price
+      count/@count * price 
+    end
+    def description
+      "(buy #{@count-1}, get 1 free)"
+    end
+  end
+
+  class NilPromotion
+    def apply count, price
+      0
+    end
+
+    def description
+      ''
+    end
   end
 end
 
@@ -58,30 +94,29 @@ class Product
   attr_reader :name, :price, :promotion
 
   def initialize name, price, promotion = nil
-    @price = price.to_d
     raise "too long" if name.length > 40
-    raise "too low" if not ('999.99'.to_d >= @price and @price>= '0.01'.to_d)
+    raise "too low" if not ('999.99'.to_d >= price and price>= '0.01'.to_d)
     #TODO constants
-    @name, @price = name, price.to_d
-    @promotion = Promotion.new *promotion.first if promotion
+    @name, @price = name, price
+    @promotion = Promotion.get_promotion promotion
   end
 
   def calculate count
-    result = flat_calculate count 
+    result = flat_calculate count
     result -= discount count 
     result
   end
 
   def discount count
-    promotion != nil ? promotion.apply(count, price) : 0
+    promotion.apply(count, @price) 
   end
 
-  def flat_calculate count
-    price * count
+  def price count
+    @price * count
   end
 
   def eql? (other)
-    name == other.name
+    name == other.name if other != nil 
   end
 
   alias :== :eql?
@@ -94,19 +129,40 @@ class Product
 end
 
 class Coupon
-  attr_reader :name, :description, :info
 
-  def initialize name, description
-    @name,@description = name, description
-    @info = "Coupon " + name + " - "
-    @info << "%d%% off" % description.first[1] if description[:percent]
-    @info << "%-.2f off" % description.first[1] if description[:amount]
+  def self.get_coupon name, description
+    type, value = description.first
+    case type #Batsov style
+    when :percent then Percent.new name, value
+    when :amount then Amount.new name, value.to_d
+    else raise "Illegal Coupon #{type}"
+    end
   end
 
-  def apply price
-    return -(price * description[:percent]/'100'.to_d) if description[:percent]
-    return -price if description[:amount] and description[:amount].to_d > price
-    return -description[:amount].to_d if description[:amount]
+  private
+  class Percent
+    attr_reader :name, :description, :info
+
+    def initialize name, percent
+      @name, @percent = name, percent
+      @info = "Coupon %s - %d%% off" % [@name, @percent]
+    end
+
+    def apply price
+      -(price * @percent/100)
+    end
+  end
+  class Amount
+    attr_reader :name, :description, :info
+
+    def initialize name, amount
+      @name, @amount = name, amount
+      @info = "Coupon %s - %-.2f " % [@name, @amount] + "off"
+    end
+
+    def apply price
+      @amount > price ? -price : -@amount
+    end
   end
 end
 
@@ -115,14 +171,15 @@ class Inventory
     @items = {}
     @coupons = {}
   end
+
   def register(name, cost, promotion = nil)
     raise "exist" if @items[name]
-    @items[name] = Product.new(name, cost, promotion)
+    @items[name] = Product.new(name, cost.to_d, promotion)
   end
 
   def register_coupon name, description
     raise "exist" if @coupons[name]
-    @coupons[name] = Coupon.new(name, description)
+    @coupons[name] = Coupon.get_coupon(name, description)
   end
 
   def new_cart
@@ -130,7 +187,9 @@ class Inventory
   end
 
   def get_item name
-    @items[name]
+    temp = @items[name]
+    raise "No Item" if temp == nil 
+    temp
   end
 
   def get_coupon name
@@ -141,35 +200,46 @@ end
 class Cart
   def initialize get_item, get_coupon
     @get_item, @get_coupon = get_item, get_coupon
-    @items = Hash.new(0)
+    @items = {}
     @coupon = nil
   end
 
   def add name, count = 1
-    raise "negative" if count < 1
-    item = @get_item.call name
-    raise "Missing Error" if not item
-    raise "Sexist Error" if @items[item] + count > 99
-    @items[item] += count
+    item = get_item name
+    item.count += count
   end
 
   def use name
+    raise "Sexist Error2" if @coupon
     coupon = @get_coupon.call name
     raise "Missing Error" if not coupon
-    raise "Sexist Error2" if @coupon
     @coupon = coupon
   end
 
-  def total
-    return total_invoice[0]
+  def get_item name
+    if @items[name] == nil
+      @items[name] = CartItem.new @get_item.call(name)
+    end
+    @items[name]
   end
 
+  def total
+    sum = items_price
+    sum += @coupon.apply sum if @coupon
+    sum
+  end
 
   def invoice
-    return total_invoice[1]
+    sum, invoice = '0'.to_d, NEWHEAD.clone
+    sum += items_price
+    invoice += @items.values.map(&:to_invoice).inject(&:+)
+    invoice << coupon_invoice(sum)
+    sum += @coupon.apply sum if @coupon
+    invoice << InvoiceEnd % sum
+    invoice
   end
 
-private
+  private
   NEWHEAD =<<LINES
 +------------------------------------------------+----------+
 | Name                                       qty |    price |
@@ -182,45 +252,42 @@ LINES
 +------------------------------------------------+----------+
 LINES
 
-  def item_info item
-    result = [item.name, @items[item]]
-    result << item.flat_calculate(result[1])
-    if item.promotion then
-      promotion = item.promotion
-      result += [promotion.description, -promotion.apply(@items[item], item.price)]
-    end
-    result
+  def items_price 
+    @items.values.map(&:price).inject(&:+)
   end
 
-  def item_invoice info
-    result = "| %-42s%4d | %8.2f |\n" % info
-    result << "|   %-44s | %8.2f |\n" % info[3..4] if info.size == 5
-    result
-  end
-  
-  def coupon_invoice info
+  def coupon_invoice sum
+    return "" if @coupon == nil
+    info = [@coupon.info, @coupon.apply(sum)]
     "| %-46s | %8.2f |\n" % info
   end
 
-  def total_invoice
-    result, invoice = '0'.to_d, NEWHEAD.clone
-    result, invoice = [result, invoice].zip(total_invoice_items).map { |i| i.inject(&:+) }
-    if @coupon
-      info = [@coupon.info, @coupon.apply(result)]
-      invoice << coupon_invoice(info)
-      result += info[1]
-    end
-    invoice << InvoiceEnd % result
-    [result, invoice]
-  end
+  class CartItem
+    attr_reader :item, :count
 
-  def total_invoice_items
-    result, invoice = '0'.to_d, ""
-    @items.keys.map { |item| item_info(item) }.each do |info|
-      invoice << item_invoice(info)
-      result += info[2]
-      result += info[4] if info[4]
+    def initialize item, count = 0 
+      @count = 0
+      @item = item
+      @count += count
     end
-    [result, invoice]
+
+    def count= (count)
+      raise "negative" if (count) < 0
+      raise "too much" if (count) > 99
+      @count = count
+    end
+
+    def to_invoice
+      result = "| %-42s%4d | %8.2f |\n" % [@item.name, count,@item.price(count)]
+      if @item.discount(count).nonzero?
+        array = [@item.promotion.description, -@item.discount(count)]
+        result << "|   %-44s | %8.2f |\n" % array
+      end
+      result
+    end
+
+    def price
+      @item.price(@count) - @item.discount(@count)
+    end
   end
 end
