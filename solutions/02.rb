@@ -9,7 +9,7 @@ class Collection
   def find(criteria)
     fields = [:name,:artist,:genre,:subgenre].select { |field| criteria[field] }
     filters = fields.map { |field| field_filter(field, criteria[field]) }
-    filters += tags_filters(*criteria[:tags]) if criteria[:tags] 
+    filters.concat tags_filters(*criteria[:tags]) if criteria[:tags] 
     filters << criteria[:filter] if criteria[:filter]
     filter = ->(song) { filters.all? { |filter| filter.call song }}
     @collection.select { |song| filter.call song }
