@@ -11,7 +11,7 @@ class Array
     result 
   end
 
-  def subarray_count sub
+  def subarray_count(sub)
     indexes = []
     each_with_index { |item, index| indexes << index if item === sub.first }
     indexes.select { |index| slice(index, sub.size) === sub }.size
