@@ -7,7 +7,8 @@ class Collection
   end
 
   def find(criteria)
-    fields = [:name,:artist,:genre,:subgenre].select { |field| criteria[field] }
+    fields = [:name, :artist, :genre, :subgenre]
+    fields = fields.select { |field| criteria[field] }
     filters = fields.map { |field| field_filter(field, criteria[field]) }
     filters.concat tags_filters(*criteria[:tags]) if criteria[:tags] 
     filters << criteria[:filter] if criteria[:filter]
