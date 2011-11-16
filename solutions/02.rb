@@ -1,6 +1,6 @@
 class Collection 
   def initialize(songs, additional_tags)
-    @collection = songs.lines.map { |line| Song.new *parse_line(line) }
+    @collection = songs.lines.map { |line| Song.new(*parse_line(line)) }
     additional_tags.each do |artist, tags|
       find(artist: artist).each { |song| song.tags += tags }
     end
@@ -12,8 +12,7 @@ class Collection
     filters = fields.map { |field| field_filter(field, criteria[field]) }
     filters.concat tags_filters(*criteria[:tags]) if criteria[:tags] 
     filters << criteria[:filter] if criteria[:filter]
-    filter = ->(song) { filters.all? { |filter| filter.call song }}
-    @collection.select { |song| filter.call song }
+    @collection.select { |song| filters.all? { |filter| filter.call song }}
   end
 
   private 
