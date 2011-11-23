@@ -1,5 +1,5 @@
 # https://github.com/MStoykov/ruby-retrospective-1/blob/master/solutions/05.rb
-
+# it's half way done
 class Formatter
   def initialize text
     @text = text
@@ -35,6 +35,7 @@ class Formatter
 
   module Tag
     attr_reader :text
+
     def initialize text
       @text = text
     end
@@ -61,7 +62,7 @@ class Formatter
     end
   end
 
-  module InlineTag
+  module InlineTag # TODO: add the inline stuff here :)
     include Tag
   end
 
@@ -76,7 +77,7 @@ class Formatter
     def +(other)
       if other.instance_of? self.class
         @text << "\n" << other.text
-         
+ 
         self
       else
         @text << closing_tag
@@ -91,6 +92,8 @@ class Formatter
     end
 
     def put_before text
+      p "HERE" unless text
+      p self.class unless @text
       @text = (text + opening_tag + @text)
     end
   end
@@ -111,8 +114,9 @@ class Formatter
     end
   end
 
-  module ContainerTag # has to be code quote and lists 
+  module ContainerTag # has to be code, quote and lists 
     include Tag
+
     def initialize text 
       super text 
     end
@@ -126,6 +130,7 @@ class Formatter
   class Paragraph 
     include BlockTag
     include PostFormattedTag
+
     def initialize text
       super text.strip
       @tag = 'p'
@@ -134,6 +139,7 @@ class Formatter
 
   class NilTag
     include BlockTag
+
     def initialize text = ''
       super "\n"
     end
@@ -156,7 +162,7 @@ class Formatter
     end
   end
  
-    class Code
+  class Code
     include BlockTag
     def initialize text
       super text
@@ -173,17 +179,48 @@ class Formatter
   end
 
   class Quote
+    attr_reader :pre
+
     include BlockTag
     include PostFormattedTag
+
     def initialize text 
-      super text
+      if /^\s*$/ === text # SMELLLS
+        @pre = NilTag.new("\n")
+      else
+        @pre = Paragraph.new(text)
+      end
       @tag = 'blockquote'
     end
+
+    def +(other)
+      if other.instance_of? self.class 
+        @pre += other.pre
+
+        self
+      else
+        @text = pre.text
+        super other
+      end
+    end
+
+
+    def put_before text
+      @text = pre.text
+      super text
+    end
+
+    def text
+      @text = pre.text
+      super
+    end
+    
   end
 
   class Strong
     include InlineTag
     include PostFormattedTag
+
     def initialize text
       super text
       @tag = "strong"
@@ -193,6 +230,7 @@ class Formatter
   class Link
     include InlineTag
     include PostFormattedTag
+
     def initialize text, link
       super text 
       @tag = 'a'
@@ -203,6 +241,7 @@ class Formatter
   class Emphasize
     include InlineTag
     include PostFormattedTag
+
     def initialize text
       super text
       @tag = 'em'
@@ -212,6 +251,7 @@ class Formatter
   class List
     include BlockTag
     include PostFormattedTag
+
     def initialize text, ordered = true 
       @indent = "  "
       @text = @indent + (ListElement.new text).to_s
@@ -221,6 +261,7 @@ class Formatter
     def +(other)
       return super other unless other.instance_of? self.class
       @text << other.text
+
       self
     end
 
@@ -232,6 +273,7 @@ class Formatter
   class ListElement
     include BlockTag
     include PostFormattedTag
+
     def initialize text
       super text
       @tag = 'li'
