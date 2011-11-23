@@ -1,7 +1,10 @@
+# https://github.com/MStoykov/ruby-retrospective-1/blob/master/solutions/05.rb
+
 class Formatter
   def initialize text
     @text = text
-    @formatted = ([NilTag.new('')].concat @text.lines.map {|line| parse_line line}<<NilTag.new('')).inject(:+).text.strip
+    pre = text.lines.inject (NilTag.new) { |buf, line| buf + parse_line(line) }
+    @formatted = (pre + NilTag.new).text.strip
   end
 
   def to_html
@@ -23,6 +26,8 @@ class Formatter
     when /^\ {4}(.*)$/            then Code.new $1
     when /^>\s+(.*)$/             then Quote.new $1
     when /^\ *$/                  then NilTag.new line
+    when /^\d*\.\ (.*)$/          then List.new $1
+    when /^\*\ (.*)$/             then List.new $1, false
     else                          Paragraph.new line
     end
   end
@@ -43,8 +48,8 @@ class Formatter
     end
 
     def attributes_string
-      return @attributes.map { |key, value| " %s=\"%s\"" % [key, value] }.inject(:+) if @attributes
-      '' 
+      return '' unless @attributes
+      @attributes.map { |key, value| " %s=\"%s\"" % [key, value] }.inject(:+) 
     end
     def closing_tag
       '</' + @tag + ">"
@@ -97,11 +102,23 @@ class Formatter
       format_inline
     end
 
-#rewrite to do it order 
+#TODO: rewrite to do it in order 
     def format_inline # Smells to me 
       @text.gsub!(/\[(.*?)\]\((.*?)\)/) { |s| Link.new($1, $2).to_s }
       @text.gsub!(/\*\*([^<]*?)\*\*/) {|s| Strong.new($1).to_s }
       @text.gsub!(/_([^<]*?)_/) {|s| Emphasize.new($1).to_s }
+    end
+  end
+
+  module ContainerTag
+    include Tag
+    def initialize text 
+      super text 
+    end
+
+    def +(other)
+      return super other if other.instance_of? self.class
+      
     end
   end
 
@@ -116,7 +133,7 @@ class Formatter
 
   class NilTag
     include BlockTag
-    def initialize text
+    def initialize text = ''
       super text
     end
 
@@ -192,13 +209,42 @@ class Formatter
       @attributes = {href: link}
     end
   end
-  
+
   class Emphasize
     include InlineTag
     include PostFormattedTag
     def initialize text
       super text
       @tag = 'em'
+    end
+  end
+
+  class List
+    include BlockTag
+    include PostFormattedTag
+    def initialize text, ordered = true 
+      @indent = "  "
+      @text = @indent + (ListElement.new text).to_s
+      @tag = ordered ? "ol" : "ul"
+    end
+
+    def +(other)
+      return super other unless other.instance_of? self.class
+      @text << other.text
+      self
+    end
+
+    def opening_tag
+      super + "\n"
+    end
+  end
+
+  class ListElement
+    include BlockTag
+    include PostFormattedTag
+    def initialize text
+      super text
+      @tag = 'li'
     end
   end
 end
