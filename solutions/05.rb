@@ -19,18 +19,52 @@ class Formatter
 
   def parse_line line
     case line 
-    when /^([\#]{1,4})\s+(\S.*)$/    then Header.new($2, $1.size) 
+    when /^([\#]{1,4})\s+(\S.*)$/ then Header.new($2, $1.size) 
     when /^\ {4}(.*)$/            then Code.new $1
+    when /^>\s+(.*)$/             then Quote.new $1
     when /^\ *$/                  then NilTag.new line
-    else                    Paragraph.new line
+    else                          Paragraph.new line
     end
   end
 
-  module Block # basic things for block type elements
+  module Tag
     attr_reader :text
+    def initialize text
+      @text = text
+    end
+ 
+    SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
+    def ekranize# TODO find out what the actual term is 
+      SPECIAL_SYMBOLS.each { |key, value| @text.gsub!(key.to_s, value) } 
+    end
+
+    def opening_tag
+      '<' + @tag + attributes_string + '>'
+    end
+
+    def attributes_string
+      return @attributes.map { |key, value| " %s=\"%s\"" % [key, value] }.inject(:+) if @attributes
+      '' 
+    end
+    def closing_tag
+      '</' + @tag + ">"
+    end
+
+    def to_s
+      opening_tag + @text + closing_tag
+    end
+  end
+
+  module InlineTag
+    include Tag
+  end
+
+  module BlockTag # basic things for block type elements
+    include Tag
 
     def initialize text
-      @text = ekranize text
+      super text
+      ekranize
     end
 
     def +(other)
@@ -46,19 +80,8 @@ class Formatter
       end
     end
 
-    SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
-    def ekranize text# TODO find out what the actual term is 
-      result = text.clone
-      SPECIAL_SYMBOLS.each { |key, value| result.gsub!(key.to_s, value) } 
-      result
-    end
-
-    def opening_tag
-      '<' + @tag + '>'
-    end
-
     def closing_tag
-      '</' + @tag + ">\n"
+      super + "\n"
     end
 
     def put_before text
@@ -66,8 +89,25 @@ class Formatter
     end
   end
 
+  module PostFormattedTag # AKA not PreFormated
+    include Tag
+    
+    def initialize text
+      super text
+      format_inline
+    end
+
+#rewrite to do it order 
+    def format_inline # Smells to me 
+      @text.gsub!(/\[(.*?)\]\((.*?)\)/) { |s| Link.new($1, $2).to_s }
+      @text.gsub!(/\*\*([^<]*?)\*\*/) {|s| Strong.new($1).to_s }
+      @text.gsub!(/_([^<]*?)_/) {|s| Emphasize.new($1).to_s }
+    end
+  end
+
   class Paragraph 
-    include Block
+    include BlockTag
+    include PostFormattedTag
     def initialize text
       super text.strip
       @tag = 'p'
@@ -75,7 +115,7 @@ class Formatter
   end
 
   class NilTag
-    include Block
+    include BlockTag
     def initialize text
       super text
     end
@@ -90,15 +130,27 @@ class Formatter
   end
 
   class Header
-    include Block
+    include BlockTag
+    include PostFormattedTag
     def initialize text, size
       super text.strip
       @tag = "h" + size.to_s
     end
   end
+ 
+  # TODO: RENAME THIS ASAP
+  module BlockWithNewLines
+    include BlockTag
+
+    def +(other)
+      return super other unless other.instance_of? self.class
+      @text << "\n" << other.text
+      self
+    end
+  end
 
   class Code
-    include Block
+    include BlockWithNewLines
     def initialize text
       super text
       @tag = 'pre><code'
@@ -111,11 +163,42 @@ class Formatter
     def closing_tag
       "</code></pre>\n"
     end
+  end
 
-    def +(other)
-      return super other unless other.instance_of? Code 
-      @text << "\n" << other.text
-      self
+  class Quote
+    include BlockWithNewLines
+    include PostFormattedTag
+    def initialize text 
+      super text
+      @tag = 'blockquote'
+    end
+  end
+
+  class Strong
+    include InlineTag
+    include PostFormattedTag
+    def initialize text
+      super text
+      @tag = "strong"
+    end
+  end
+
+  class Link
+    include InlineTag
+    include PostFormattedTag
+    def initialize text, link
+      super text 
+      @tag = 'a'
+      @attributes = {href: link}
+    end
+  end
+  
+  class Emphasize
+    include InlineTag
+    include PostFormattedTag
+    def initialize text
+      super text
+      @tag = 'em'
     end
   end
 end
