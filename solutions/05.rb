@@ -199,7 +199,7 @@ class Formatter
 
         self
       else
-        @text = pre.text
+        @text += pre.text
         super other
       end
     end
