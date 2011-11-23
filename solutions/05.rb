@@ -3,8 +3,9 @@
 class Formatter
   def initialize text
     @text = text
-    pre = text.lines.inject (NilTag.new) { |buf, line| buf + parse_line(line) }
-    @formatted = (pre + NilTag.new).text.strip
+    buf = NilTag.new
+    text.lines.each { |line| buf += parse_line(line) }
+    @formatted = (buf + NilTag.new).text.strip
   end
 
   def to_html
@@ -22,8 +23,8 @@ class Formatter
 
   def parse_line line
     case line 
-    when /^([\#]{1,4})\s+(\S.*)$/ then Header.new($2, $1.size) 
     when /^\ {4}(.*)$/            then Code.new $1
+    when /^\s*([\#]{1,4})\s+(\S.*)$/ then Header.new($2, $1.size) 
     when /^>\s+(.*)$/             then Quote.new $1
     when /^\ *$/                  then NilTag.new line
     when /^\d*\.\ (.*)$/          then List.new $1
@@ -74,7 +75,7 @@ class Formatter
 
     def +(other)
       if other.instance_of? self.class
-        @text << other.text
+        @text << "\n" << other.text
          
         self
       else
@@ -86,7 +87,7 @@ class Formatter
     end
 
     def closing_tag
-      super + "\n"
+      super + "\n" 
     end
 
     def put_before text
@@ -110,7 +111,7 @@ class Formatter
     end
   end
 
-  module ContainerTag
+  module ContainerTag # has to be code quote and lists 
     include Tag
     def initialize text 
       super text 
@@ -122,9 +123,17 @@ class Formatter
     end
   end
 
+# TODO: RENAME THIS ASAP
+  module BlockWithNewLines
+    include BlockTag
+
+  end
+
+
   class Paragraph 
     include BlockTag
     include PostFormattedTag
+    include BlockWithNewLines
     def initialize text
       super text.strip
       @tag = 'p'
@@ -134,7 +143,7 @@ class Formatter
   class NilTag
     include BlockTag
     def initialize text = ''
-      super text
+      super "\n"
     end
 
     def opening_tag
@@ -155,18 +164,7 @@ class Formatter
     end
   end
  
-  # TODO: RENAME THIS ASAP
-  module BlockWithNewLines
-    include BlockTag
-
-    def +(other)
-      return super other unless other.instance_of? self.class
-      @text << "\n" << other.text
-      self
-    end
-  end
-
-  class Code
+    class Code
     include BlockWithNewLines
     def initialize text
       super text
