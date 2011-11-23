@@ -123,17 +123,9 @@ class Formatter
     end
   end
 
-# TODO: RENAME THIS ASAP
-  module BlockWithNewLines
-    include BlockTag
-
-  end
-
-
   class Paragraph 
     include BlockTag
     include PostFormattedTag
-    include BlockWithNewLines
     def initialize text
       super text.strip
       @tag = 'p'
@@ -165,7 +157,7 @@ class Formatter
   end
  
     class Code
-    include BlockWithNewLines
+    include BlockTag
     def initialize text
       super text
       @tag = 'pre><code'
@@ -181,7 +173,7 @@ class Formatter
   end
 
   class Quote
-    include BlockWithNewLines
+    include BlockTag
     include PostFormattedTag
     def initialize text 
       super text
