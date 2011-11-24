@@ -141,7 +141,7 @@ class Formatter
     include BlockTag
 
     def initialize text = ''
-      super "\n"
+      super text
     end
 
     def opening_tag
@@ -199,22 +199,17 @@ class Formatter
 
         self
       else
-        @text += pre.text
+        p "| " + @pre.text + " |"
+        @text << (@pre + NilTag.new('')).text.strip
         super other
       end
     end
 
 
     def put_before text
-      @text = pre.text
+      @text = (NilTag.new('') + @pre).text
       super text
     end
-
-    def text
-      @text = pre.text
-      super
-    end
-    
   end
 
   class Strong
