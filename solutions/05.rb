@@ -104,11 +104,14 @@ class Formatter
       format_inline
     end
 
-#TODO: rewrite to do it in order 
     def format_inline # Smells to me 
+      @text.gsub!(/((\*\*[^<]*?\*\*)|(_[^<]*?_))/) do |s|
+        case s
+        when /^\*/  then Strong.new(s[2..-3]).to_s
+        when /^_/   then Emphasize.new(s[1..-2]).to_s
+        end
+      end
       @text.gsub!(/\[(.*?)\]\((.*?)\)/) { |s| Link.new($1, $2).to_s }
-      @text.gsub!(/\*\*([^<]*?)\*\*/) {|s| Strong.new($1).to_s }
-      @text.gsub!(/_([^<]*?)_/) {|s| Emphasize.new($1).to_s }
     end
   end
 
@@ -197,7 +200,6 @@ class Formatter
 
         self
       else
-#       p "| " + @pre.text + " |"
         @text << (@pre + NilTag.new('')).text.strip
         super other
       end
