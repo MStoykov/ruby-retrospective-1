@@ -92,8 +92,6 @@ class Formatter
     end
 
     def put_before text
-      p "HERE" unless text
-      p self.class unless @text
       @text = (text + opening_tag + @text)
     end
   end
@@ -190,7 +188,7 @@ class Formatter
       else
         @pre = Paragraph.new(text)
       end
-      @tag = 'blockquote'
+      @tag = "blockquote"
     end
 
     def +(other)
@@ -199,7 +197,7 @@ class Formatter
 
         self
       else
-        p "| " + @pre.text + " |"
+#       p "| " + @pre.text + " |"
         @text << (@pre + NilTag.new('')).text.strip
         super other
       end
@@ -207,7 +205,7 @@ class Formatter
 
 
     def put_before text
-      @text = (NilTag.new('') + @pre).text
+      @text = (NilTag.new('')).text + "<p>"
       super text
     end
   end
