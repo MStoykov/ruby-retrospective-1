@@ -18,6 +18,7 @@ namespace :tasks do
   task('02') { Rake::Task['tasks:run'].execute('02') }
   task('03') { Rake::Task['tasks:run'].execute('03') }
   task('05') { Rake::Task['tasks:run'].execute('05') }
+
   task :run, :task_id do |t, arg|
     index = arg
     Rake::Task['tasks:skeptic'].execute index
