@@ -1,11 +1,53 @@
 # https://github.com/MStoykov/ruby-retrospective-1/blob/master/solutions/05.rb
 # it's half way done
+=begin TODO LIST 
+* Complaete reimplementing with Container
+*.* List
+*.* Code
+*.* Quote
+* make regexp part of each class
+* match better
+* make Formatter a Container
+* remove put_before with somekind of ordered list construction
+=end
+
+module Tag
+attr_reader :text
+
+  def initialize text
+    @text = text
+  end
+
+  SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
+  def ekranize# TODO find out what the actual term is 
+    SPECIAL_SYMBOLS.each { |key, value| @text.gsub!(key.to_s, value) } 
+  end
+
+  def opening_tag
+    '<' + @tag + attributes_string + '>'
+  end
+
+  def attributes_string
+    return '' unless @attributes
+    @attributes.map { |key, value| " %s=\"%s\"" % [key, value] }.inject(:+) 
+  end
+
+  def closing_tag
+    '</' + @tag + ">"
+  end
+
+  def to_s
+    opening_tag + @text + closing_tag
+  end
+end
+
 class Formatter
   def initialize text
     @text = text
     buf = NilTag.new
     text.lines.each { |line| buf += parse_line(line) }
-    @formatted = (buf + NilTag.new).text.strip
+    buf += NilTag.new
+    @formatted = buf.text.strip
   end
 
   def to_html
@@ -18,7 +60,6 @@ class Formatter
     @text
   end
 
-
   private 
 
   def parse_line line
@@ -30,35 +71,6 @@ class Formatter
     when /^\d*\.\ (.*)$/          then List.new $1
     when /^\*\ (.*)$/             then List.new $1, false
     else                          Paragraph.new line
-    end
-  end
-
-  module Tag
-    attr_reader :text
-
-    def initialize text
-      @text = text
-    end
- 
-    SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
-    def ekranize# TODO find out what the actual term is 
-      SPECIAL_SYMBOLS.each { |key, value| @text.gsub!(key.to_s, value) } 
-    end
-
-    def opening_tag
-      '<' + @tag + attributes_string + '>'
-    end
-
-    def attributes_string
-      return '' unless @attributes
-      @attributes.map { |key, value| " %s=\"%s\"" % [key, value] }.inject(:+) 
-    end
-    def closing_tag
-      '</' + @tag + ">"
-    end
-
-    def to_s
-      opening_tag + @text + closing_tag
     end
   end
 
@@ -118,13 +130,21 @@ class Formatter
   module ContainerTag # has to be code, quote and lists 
     include Tag
 
-    def initialize text 
-      super text 
+    def +(other)
+      if other.instance_of? self.class
+        @pre += other.pre
+
+        self
+      else
+        @text += (pre + NilTag.new).text.strip
+
+        super other
+      end
     end
 
-    def +(other)
-      return super other if other.instance_of? self.class
-      
+    def put_before text
+      @text = (NilTag.new('')).text + "<p>"
+      super text
     end
   end
 
@@ -184,6 +204,7 @@ class Formatter
 
     include BlockTag
     include PostFormattedTag
+    include ContainerTag
 
     def initialize text 
       if /^\s*$/ === text # SMELLLS
@@ -192,23 +213,6 @@ class Formatter
         @pre = Paragraph.new(text)
       end
       @tag = "blockquote"
-    end
-
-    def +(other)
-      if other.instance_of? self.class 
-        @pre += other.pre
-
-        self
-      else
-        @text << (@pre + NilTag.new('')).text.strip
-        super other
-      end
-    end
-
-
-    def put_before text
-      @text = (NilTag.new('')).text + "<p>"
-      super text
     end
   end
 
@@ -275,3 +279,5 @@ class Formatter
     end
   end
 end
+
+
