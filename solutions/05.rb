@@ -40,7 +40,92 @@ attr_reader :text
   end
 end
 
+
+module InlineTag # TODO: add the inline stuff here :)
+  include Tag
+end
+
+module BlockTag # basic things for block type elements
+  include Tag
+
+  def initialize text
+    super text
+    ekranize
+  end
+
+  def +(other)
+    if other.instance_of? self.class
+      @text << "\n" << other.text
+
+      self
+    else
+      @text << closing_tag
+      other.put_before @text
+
+      other
+    end
+  end
+
+  def closing_tag
+    super + "\n" 
+  end
+
+  def put_before text
+    @text = (text + opening_tag + @text)
+  end
+end
+
+module PostFormattedTag # AKA not PreFormated
+  include Tag
+  
+  def initialize text
+    super text
+    format_inline
+  end
+
+  def format_inline # Smells to me
+    @text.gsub!(/((\*\*[^<]*?\*\*)|(_[^<]*?_))/) do |s|
+      case s
+      when /^\*/  then Strong.new(s[2..-3]).to_s
+      when /^_/   then Emphasize.new(s[1..-2]).to_s
+      end
+    end
+    @text.gsub!(/\[(.*?)\]\((.*?)\)/) { |s| Link.new($1, $2).to_s }
+  end
+end
+
+module ContainerTag # has to be code, quote and lists 
+  attr_reader :pre
+
+  include Tag
+
+  def initialize text
+  end
+
+  def +(other)
+    if other.instance_of? self.class
+      @pre other.pre
+
+      self
+    else
+      @text += (pre + NilTag.new).text
+      @text.strip! unless @dont_strip_pre
+
+      super other
+    end
+  end
+
+  def <<(other)
+    @pre.last + other if other.instance_of? @pre.last.class
+    @pre << other.pre
+  end
+end
+
+
+
+
 class Formatter
+  
   def initialize text
     @text = text
     buf = NilTag.new
@@ -72,84 +157,6 @@ class Formatter
     else                              Paragraph.new line
     end
   end
-
-  module InlineTag # TODO: add the inline stuff here :)
-    include Tag
-  end
-
-  module BlockTag # basic things for block type elements
-    include Tag
-
-    def initialize text
-      super text
-      ekranize
-    end
-
-    def +(other)
-      if other.instance_of? self.class
-        @text << "\n" << other.text
- 
-        self
-      else
-        @text << closing_tag
-        other.put_before @text
-
-        other
-      end
-    end
-
-    def closing_tag
-      super + "\n" 
-    end
-
-    def put_before text
-      @text = (text + opening_tag + @text)
-    end
-  end
-
-  module PostFormattedTag # AKA not PreFormated
-    include Tag
-    
-    def initialize text
-      super text
-      format_inline
-    end
-
-    def format_inline # Smells to me
-      @text.gsub!(/((\*\*[^<]*?\*\*)|(_[^<]*?_))/) do |s|
-        case s
-        when /^\*/  then Strong.new(s[2..-3]).to_s
-        when /^_/   then Emphasize.new(s[1..-2]).to_s
-        end
-      end
-      @text.gsub!(/\[(.*?)\]\((.*?)\)/) { |s| Link.new($1, $2).to_s }
-    end
-  end
-
-  module ContainerTag # has to be code, quote and lists 
-    attr_reader :pre
-
-    include Tag
-
-    def +(other)
-      if other.instance_of? self.class
-        @pre += other.pre
-
-        self
-      else
-        @text += (pre + NilTag.new).text
-        @text.strip! unless @dont_strip_pre
-        super other
-      end
-    end
-
-    def put_before text
-      @pre = NilTag.new('') + @pre
-      @text = (NilTag.new('')).text
-      super text
-    end
-  end
-
   class Paragraph 
     include BlockTag
     include PostFormattedTag
@@ -187,6 +194,7 @@ class Formatter
  
   class Code
     include BlockTag
+
     def initialize text
       super text
       @tag = 'pre><code'
