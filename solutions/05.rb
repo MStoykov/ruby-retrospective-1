@@ -1,10 +1,8 @@
 # https://github.com/MStoykov/ruby-retrospective-1/blob/master/solutions/05.rb
 # it's half way done
 =begin TODO LIST 
-* Complaete reimplementing with Container
-*.* List
+* Complete reimplementing with Container
 *.* Code
-*.* Quote
 * make regexp part of each class
 * match better
 * make Formatter a Container
@@ -65,13 +63,13 @@ class Formatter
 
   def parse_line line
     case line 
-    when /^\ {4}(.*)$/            then Code.new $1
-    when /^\s*([\#]{1,4})\s+(\S.*)$/ then Header.new($2, $1.size) 
-    when /^>\s+(.*)$/             then Quote.new $1
-    when /^\ *$/                  then NilTag.new line
-    when /^\d*\.\ (.*)$/          then List.new $1
-    when /^\*\ (.*)$/             then List.new $1, false
-    else                          Paragraph.new line
+    when /^\ {4}(.*)$/                then Code.new $1
+    when /^\s*([\#]{1,4})\s+(\S.*)$/  then Header.new($2, $1.size) 
+    when /^>\s+(.*)$/                 then Quote.new $1
+    when /^\ *$/                      then NilTag.new line
+    when /^\d*\.\ (.*)$/              then List.new $1
+    when /^\*\ (.*)$/                 then List.new $1, false
+    else                              Paragraph.new line
     end
   end
 
