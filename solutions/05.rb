@@ -16,6 +16,7 @@ attr_reader :text
 
   def initialize text
     @text = text
+    @indent ||= ''
   end
 
   SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
@@ -24,7 +25,7 @@ attr_reader :text
   end
 
   def opening_tag
-    '<' + @tag + attributes_string + '>'
+    (@indent||'') + '<' + @tag + attributes_string + '>'
   end
 
   def attributes_string
@@ -116,7 +117,7 @@ class Formatter
       format_inline
     end
 
-    def format_inline # Smells to me 
+    def format_inline # Smells to me
       @text.gsub!(/((\*\*[^<]*?\*\*)|(_[^<]*?_))/) do |s|
         case s
         when /^\*/  then Strong.new(s[2..-3]).to_s
@@ -128,6 +129,8 @@ class Formatter
   end
 
   module ContainerTag # has to be code, quote and lists 
+    attr_reader :pre
+
     include Tag
 
     def +(other)
@@ -136,14 +139,15 @@ class Formatter
 
         self
       else
-        @text += (pre + NilTag.new).text.strip
-
+        @text += (pre + NilTag.new).text
+        @text.strip! unless @dont_strip_pre
         super other
       end
     end
 
     def put_before text
-      @text = (NilTag.new('')).text + "<p>"
+      @pre = NilTag.new('') + @pre
+      @text = (NilTag.new('')).text
       super text
     end
   end
@@ -213,6 +217,7 @@ class Formatter
         @pre = Paragraph.new(text)
       end
       @tag = "blockquote"
+      super text
     end
   end
 
@@ -249,22 +254,14 @@ class Formatter
 
   class List
     include BlockTag
-    include PostFormattedTag
+    include ContainerTag
 
     def initialize text, ordered = true 
-      @indent = "  "
-      @text = @indent + (ListElement.new text).to_s
+      @pre = ListElement.new text
       @tag = ordered ? "ol" : "ul"
+      @dont_strip_pre = true
     end
-
-    def +(other)
-      return super other unless other.instance_of? self.class
-      @text << other.text
-
-      self
-    end
-
-    def opening_tag
+    def opening_tag 
       super + "\n"
     end
   end
@@ -274,8 +271,18 @@ class Formatter
     include PostFormattedTag
 
     def initialize text
-      super text
       @tag = 'li'
+      @indent = " " * 2
+      super text
+    end
+
+    def +(other)
+      other.put_before (@text + closing_tag)
+      other
+    end
+    
+    def put_before text
+      @text = (text + opening_tag + @text)
     end
   end
 end
