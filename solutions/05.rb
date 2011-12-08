@@ -14,7 +14,7 @@ attr_reader :text
 
   def initialize text
     @text = text
-    @indent ||= ''
+    ekranize
   end
 
   SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
@@ -40,7 +40,6 @@ attr_reader :text
   end
 end
 
-
 module InlineTag # TODO: add the inline stuff here :)
   include Tag
 end
@@ -50,20 +49,12 @@ module BlockTag # basic things for block type elements
 
   def initialize text
     super text
-    ekranize
   end
 
   def +(other)
-    if other.instance_of? self.class
-      @text << "\n" << other.text
+    @text << "\n" << other.text
 
-      self
-    else
-      @text << closing_tag
-      other.put_before @text
-
-      other
-    end
+    self
   end
 
   def closing_tag
@@ -96,38 +87,29 @@ end
 
 module ContainerTag # has to be code, quote and lists 
   attr_reader :pre
-
   include Tag
 
-  def initialize text
-  end
-
   def +(other)
-    if other.instance_of? self.class
-      @pre other.pre
-
-      self
-    else
-      @text += (pre + NilTag.new).text
-      @text.strip! unless @dont_strip_pre
-
-      super other
-    end
+    self << other.pre
   end
 
   def <<(other)
     @pre.last + other if other.instance_of? @pre.last.class
-    @pre << other.pre
+    @pre.concat other.pre
+    self
+  end
+
+  def to_s
+    opening_tag + @pre.map(&:to_s).inject(:+) + closing_tag
   end
 end
-
-
-
 
 class Formatter
   
   def initialize text
     @text = text
+    md = Markdown.new ''
+    
     buf = NilTag.new
     text.lines.each { |line| buf += parse_line(line) }
     buf += NilTag.new
@@ -291,6 +273,9 @@ class Formatter
       @text = (text + opening_tag + @text)
     end
   end
+
+  class Markdown
+    include ContainerTag
+
+  end
 end
-
-
