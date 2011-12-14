@@ -14,7 +14,7 @@ attr_reader :text
 
   def initialize text
     @text = text
-    ekranize
+    ekranize unless @no_ekranize
   end
 
   SPECIAL_SYMBOLS = {'&' => '&amp;', '<' => '&lt;', '>' => '&gt;', '"' => '&quot;'}
@@ -23,6 +23,7 @@ attr_reader :text
   end
 
   def opening_tag
+    throw self.class.to_s unless @tag 
     (@indent||'') + '<' + @tag + attributes_string + '>'
   end
 
@@ -91,29 +92,179 @@ module ContainerTag # has to be code, quote and lists
 
   def +(other)
     self << other.pre
+    self
   end
 
   def <<(other)
-    @pre.last + other if other.instance_of? @pre.last.class
-    @pre.concat other.pre
+    if other.instance_of? @pre.last.class
+      @pre.last + other 
+    else
+      @pre.concat [*other]
+    end
     self
   end
 
   def to_s
-    opening_tag + @pre.map(&:to_s).inject(:+) + closing_tag
+    opening_tag + inner_to_s  + closing_tag
+  end
+
+  def inner_to_s
+    temp = @pre.map(&:to_s).inject(:+) 
+    @dont_strip_pre ? temp : temp.strip
+  end
+end
+
+class Paragraph 
+  include BlockTag
+  include PostFormattedTag
+
+  def initialize text
+    super text.strip
+    @tag = 'p'
+  end
+end
+
+class NilTag
+  include BlockTag
+
+  def initialize text = ''
+    super text
+  end
+
+  def opening_tag
+    ''
+  end
+
+  def closing_tag
+    ''
+  end
+end
+
+class Header
+  include BlockTag
+  include PostFormattedTag
+  def initialize text, size
+    super text.strip
+    @tag = "h" + size.to_s
+  end
+end
+
+class Code
+  include BlockTag
+
+  def initialize text
+    super text
+    @tag = 'pre><code'
+  end
+
+  def opening_tag
+    '<pre><code>'
+  end
+
+  def closing_tag
+    "</code></pre>\n"
+  end
+end
+
+class Quote
+  attr_reader :pre
+
+  include BlockTag
+  include PostFormattedTag
+  include ContainerTag
+
+  def initialize text 
+    if /^\s*$/ === text # SMELLLS
+      @pre = [NilTag.new("\n")]
+    else
+      @pre = [Paragraph.new(text)]
+    end
+    @tag = "blockquote"
+    super text
+  end
+
+  def to_s 
+    super
+  end
+end
+
+Strong, Emphasize = %w[strong em].map do |tag|
+  Class.new do 
+    include InlineTag
+    include PostFormattedTag
+
+    define_method(:initialize) do |text|
+      @tag = tag
+      @no_ekranize = true 
+      super text
+    end 
+  end
+end
+
+class Link
+  include InlineTag
+  include PostFormattedTag
+
+  def initialize text, link
+    @tag = "a"
+    @attributes = {href: link}
+    @no_ekranize = true 
+    super text 
+  end
+end
+
+
+class List
+  include BlockTag
+  include ContainerTag
+
+  def initialize text, ordered = true 
+    @pre = [ListElement.new(text)]
+    @tag = ordered ? "ol" : "ul"
+    @dont_strip_pre = true
+  end
+  def opening_tag 
+    super + "\n"
+  end
+end
+
+class ListElement
+  include BlockTag
+  include PostFormattedTag
+
+  def initialize text
+    @tag = 'li'
+    @indent = " " * 2
+    super text
+  end
+
+  def +(other)
+    other.put_before (@text + closing_tag)
+    other
+  end
+  
+  def put_before text
+    @text = (text + opening_tag + @text)
+  end
+end
+
+class Markdown
+  include ContainerTag
+  def initialize(text = nil)
+    @tag = ''
+    @pre = [NilTag.new]
   end
 end
 
 class Formatter
-  
   def initialize text
     @text = text
     md = Markdown.new ''
-    
+     
     buf = NilTag.new
-    text.lines.each { |line| buf += parse_line(line) }
+    text.lines.each { |line| md << parse_line(line) }
     buf += NilTag.new
-    @formatted = buf.text.strip
+    @formatted = md.inner_to_s.strip
   end
 
   def to_html
@@ -138,144 +289,5 @@ class Formatter
     when /^\*\ (.*)$/                 then List.new $1, false
     else                              Paragraph.new line
     end
-  end
-  class Paragraph 
-    include BlockTag
-    include PostFormattedTag
-
-    def initialize text
-      super text.strip
-      @tag = 'p'
-    end
-  end
-
-  class NilTag
-    include BlockTag
-
-    def initialize text = ''
-      super text
-    end
-
-    def opening_tag
-      ''
-    end
-
-    def closing_tag
-      ''
-    end
-  end
-
-  class Header
-    include BlockTag
-    include PostFormattedTag
-    def initialize text, size
-      super text.strip
-      @tag = "h" + size.to_s
-    end
-  end
- 
-  class Code
-    include BlockTag
-
-    def initialize text
-      super text
-      @tag = 'pre><code'
-    end
-
-    def opening_tag
-      '<pre><code>'
-    end
-
-    def closing_tag
-      "</code></pre>\n"
-    end
-  end
-
-  class Quote
-    attr_reader :pre
-
-    include BlockTag
-    include PostFormattedTag
-    include ContainerTag
-
-    def initialize text 
-      if /^\s*$/ === text # SMELLLS
-        @pre = NilTag.new("\n")
-      else
-        @pre = Paragraph.new(text)
-      end
-      @tag = "blockquote"
-      super text
-    end
-  end
-
-  class Strong
-    include InlineTag
-    include PostFormattedTag
-
-    def initialize text
-      super text
-      @tag = "strong"
-    end
-  end
-
-  class Link
-    include InlineTag
-    include PostFormattedTag
-
-    def initialize text, link
-      super text 
-      @tag = 'a'
-      @attributes = {href: link}
-    end
-  end
-
-  class Emphasize
-    include InlineTag
-    include PostFormattedTag
-
-    def initialize text
-      super text
-      @tag = 'em'
-    end
-  end
-
-  class List
-    include BlockTag
-    include ContainerTag
-
-    def initialize text, ordered = true 
-      @pre = ListElement.new text
-      @tag = ordered ? "ol" : "ul"
-      @dont_strip_pre = true
-    end
-    def opening_tag 
-      super + "\n"
-    end
-  end
-
-  class ListElement
-    include BlockTag
-    include PostFormattedTag
-
-    def initialize text
-      @tag = 'li'
-      @indent = " " * 2
-      super text
-    end
-
-    def +(other)
-      other.put_before (@text + closing_tag)
-      other
-    end
-    
-    def put_before text
-      @text = (text + opening_tag + @text)
-    end
-  end
-
-  class Markdown
-    include ContainerTag
-
   end
 end
