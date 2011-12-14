@@ -6,6 +6,7 @@ task :check do
   Rake::Task['tasks:02'].invoke
   Rake::Task['tasks:03'].invoke
   Rake::Task['tasks:05'].invoke
+  Rake::Task['tasks:06'].invoke
 end
 
 desc 'Starts watchr'
@@ -18,6 +19,7 @@ namespace :tasks do
   task('02') { Rake::Task['tasks:run'].execute('02') }
   task('03') { Rake::Task['tasks:run'].execute('03') }
   task('05') { Rake::Task['tasks:run'].execute('05') }
+  task('06') { Rake::Task['tasks:run'].execute('06') }
 
   task :run, :task_id do |t, arg|
     index = arg
