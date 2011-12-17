@@ -7,9 +7,40 @@ describe GameOfLife::Board do
     end
   end
 
+  describe 'corner cases' do
+    it 'behaves correctly when no cells are given' do
+      board = new_board
+
+      board.count.should be_zero
+      board.next_generation.count.should be_zero
+    end
+
+    it 'behaves correctly when the given cells are repeated' do
+      board = new_board [1, 2], [1, 2], [1, 3], [1, 3]
+      board.count.should eq 2
+    end
+
+    it 'copes with very large coordinates' do
+      board = new_board([1000000000000000000000, 1000000000000000000000],
+                        [1000000000000000000001, 1000000000000000000000],
+                        [1000000000000000000000, 1000000000000000000001])
+      board.count.should eq 3
+      board.next_generation.count.should eq 4
+    end
+  end
+
+  describe 'Enumerable interface' do
+    it 'navigates through cells' do
+      board = new_board [1, 1], [1, 2], [1, 3]
+
+      board.first.should =~ [1, 1]
+      board.reverse_each.first.should =~ [1, 3]
+    end
+  end
+
   describe 'enumeration' do
     it 'yields coordinates of live cells' do
-      cells  = [0, 1], [2, 3], [5, 5]
+      cells = [0, 1], [2, 3], [5, 5]
 
       new_board(*cells).each do |x, y|
         cells.should include([x, y])
@@ -74,6 +105,51 @@ describe GameOfLife::Board do
 
         next_gen[1, 0].should be_true
         next_gen[1, 2].should be_true
+      end
+    end
+
+    it 'does not mutate the old board when making next generation' do
+      board = new_board [0, 1], [1, 1], [2, 1]
+      board.next_generation
+      board.to_a.should =~ [[0, 1], [1, 1], [2, 1]]
+    end
+
+    describe 'stills' do
+      it 'realizes a block' do
+        block = [[0, 0], [1, 0], [0, 1], [1, 1]]
+        board = new_board *block
+        board.next_generation.to_a.should =~ block
+      end
+
+      it 'realizes a boat' do
+        boat = [[0, 0], [1, 0], [0, 1], [2, 1], [1, 2]]
+        board = new_board *boat
+        board.next_generation.to_a.should =~ boat
+      end
+    end
+
+    describe 'oscillators' do
+      it 'realizes a blinker' do
+        board = new_board [-1, 0], [0, 0], [1, 0]
+        next_gen = board.next_generation
+        next_gen.to_a.should =~ [[0, -1], [0, 0], [0, 1]]
+        next_gen.next_generation.to_a.should =~ board.to_a
+      end
+
+      it 'realizes a beacon' do
+        board = new_board [1, 1], [1, 2], [2, 1], [2, 2], [3, 3], [3, 4], [4, 3], [4, 4]
+        next_gen = board.next_generation
+        next_gen.to_a.should =~ [[1, 1], [1, 2], [2, 1], [3, 4], [4, 3], [4, 4]]
+        next_gen.next_generation.to_a.should =~ board.to_a
+      end
+    end
+
+    describe 'spaceships' do
+      it 'realizes a glider' do
+        board = new_board [0, 0], [1, 1], [1, 2], [0, 2], [-1, 2]
+        next_gen = board.next_generation
+        next_gen.to_a.should =~ [[-1, 1], [1, 1], [1, 2], [0, 2], [0, 3]]
+        next_gen.next_generation.to_a.should =~ [[1, 1], [1, 2], [1, 3], [0, 3], [-1, 2]]
       end
     end
   end
