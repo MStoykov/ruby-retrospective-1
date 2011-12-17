@@ -1,51 +1,51 @@
+#TODO make it work for n
+require 'set'
+
 module GameOfLife
-  class Board 
+  class Board
     include Enumerable
-   
-     
+
     def initialize(*generation)
-      @generation  = generation
+      @generation = Set.new generation
     end
 
-
-    def next_generation 
-      new_generation = @generation.select { |cell| lives(*cell) } 
-      @generation.map { |cell| new_generation.concat sprout(*cell)}
-      Board.new *new_generation.uniq
+    def next_generation
+       hash_map = map_neighbors.select do |cell, neighbors| 
+        neighbors == 3 or ( neighbors == 2 and self[*cell] )
+      end
+      Board.new *hash_map.keys
     end
 
-    def count
+    def each
+      if (block_given?)
+        @generation.each { |cell| yield cell }
+      else
+        @generation.each
+      end
+    end
+
+    def [](x, y)
+      @generation.include? [x, y]
+    end
+
+    def size
       @generation.size
     end
 
-    def each &block
-      @generation.each { |cell| block.call cell }
-    end
+    private
 
-    def [](x,y)
-      any? { |cell| cell == [x, y] }
-    end
-  
-    def neighbors(x, y)
-      possible_neighbors(x, y).select { |neighbor| self[*neighbor] }
-    end
-
-    private 
-    def possible_neighbors (x, y)
+    def possible_neighbors(x, y)
       [ [x - 1, y + 1], [x    , y + 1], [x + 1, y + 1],
         [x - 1, y    ],                 [x + 1, y    ],
-        [x - 1, y - 1], [x    , y - 1], [x + 1, y - 1]]      
+        [x - 1, y - 1], [x    , y - 1], [x + 1, y - 1]]
     end
 
-    def lives(x, y)
-      n = neighbors(x, y).count 
-      n >= 2 and n <= 3
+    def map_neighbors
+      hash = Hash.new 0
+      each do |cell|
+        possible_neighbors(*cell).each { |neighbor| hash[neighbor] += 1 }
+      end
+      hash
     end
-
-    def sprout(x, y)
-      possible_new = possible_neighbors(x, y) - neighbors(x, y)
-      possible_new.select { |cell| neighbors(*cell).count == 3 }
-    end
-      
   end
 end
