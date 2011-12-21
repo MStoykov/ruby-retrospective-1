@@ -10,7 +10,7 @@ module GameOfLife
     end
 
     def next_generation
-       hash_map = map_neighbors.select do |cell, neighbors| 
+      hash_map = map_neighbors.select do |cell, neighbors|
         neighbors == 3 or ( neighbors == 2 and self[*cell] )
       end
       Board.new *hash_map.keys
