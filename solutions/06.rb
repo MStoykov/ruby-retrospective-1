@@ -16,9 +16,9 @@ module GameOfLife
       Board.new *hash_map.keys
     end
 
-    def each
-      if (block_given?)
-        @generation.each { |cell| yield cell }
+    def each &block
+      if block_given?
+        @generation.each block
       else
         @generation.each
       end
@@ -34,7 +34,7 @@ module GameOfLife
 
     private
 
-    def possible_neighbors(x, y)
+    def neighbors_of(x, y)
       [ [x - 1, y + 1], [x    , y + 1], [x + 1, y + 1],
         [x - 1, y    ],                 [x + 1, y    ],
         [x - 1, y - 1], [x    , y - 1], [x + 1, y - 1]]
@@ -43,7 +43,7 @@ module GameOfLife
     def map_neighbors
       hash = Hash.new 0
       each do |cell|
-        possible_neighbors(*cell).each { |neighbor| hash[neighbor] += 1 }
+        neighbors_of(*cell).each { |neighbor| hash[neighbor] += 1 }
       end
       hash
     end
